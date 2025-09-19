@@ -3,265 +3,475 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text Message Storage</title>
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The application is designed as a single-page interactive dashboard to transform the linear expedition plan into an exploratory experience. The structure prioritizes user engagement by starting with a high-impact overview (key stats), followed by a global route map for immediate visual context. Below this is an interactive journey timeline. Users can select a specific leg of the trek, which dynamically updates a detailed information panel and a comparative data visualization chart. This non-linear approach allows users to explore the most interesting aspects of the journey at their own pace. The preparation, logistics, and gear sections are grouped into a thematic area with interactive tabs, making dense information scannable and digestible. This structure was chosen to make a complex, text-heavy plan feel accessible, exciting, and easy to navigate, focusing on user-driven discovery rather than passive reading. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Total Distance/Duration -> Goal: Inform/Impact -> Method: Large "Key Stats" cards at the top -> Interaction: Static -> Justification: Immediately grabs user attention with the scale of the project.
+        - Report Info: The entire route from Argentina to South Africa -> Goal: Organize/Inform -> Method: Plotly.js scattergeo map -> Interaction: Hover over points for location names, zoom/pan -> Justification: Provides a high-level, interactive geographical context for the entire journey right away.
+        - Report Info: The four main journey legs -> Goal: Organize/Navigate -> Method: A clickable, horizontal timeline made of styled HTML divs -> Interaction: User clicks to select a leg, triggering updates across the page. An active state highlights the selection -> Justification: Provides a clear, visual navigation hub for the journey segments.
+        - Report Info: Distance per leg (~20k, 88, 12k, 10k km) -> Goal: Compare -> Method: Chart.js Doughnut Chart -> Interaction: Tooltips on hover provide exact figures. The chart visually segments the total journey -> Justification: Offers an immediate, easy-to-understand comparison of the scale of each leg.
+        - Report Info: Detailed challenges/routes for each leg -> Goal: Inform -> Method: A dedicated content area updated with JS -> Interaction: Dynamically populated based on timeline selection -> Justification: Prevents information overload by showing details for only one leg at a time.
+        - Report Info: Gear list (modular) -> Goal: Organize -> Method: Tabbed content area using HTML/JS -> Interaction: User clicks tabs (Core, Arctic, etc.) to reveal specific gear lists -> Justification: Organizes extensive list data into a compact, user-controlled component.
+        - Library/Method: Plotly.js and Chart.js for visualizations (Canvas-based), Tailwind CSS for layout, and Vanilla JS for all interactivity.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <title>Terra Stride: The Definitive Intercontinental Foot Journey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.33.0.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@300;400;600&family=Jura:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-bg: #f4f7f9;
-            --text-color: #333;
-            --container-bg: #ffffff;
-            --border-color: #e0e0e0;
-            --button-bg: #007bff;
-            --button-hover-bg: #0056b3;
-            --button-text: #ffffff;
-            --input-bg: #fdfdfd;
-            --message-bg: #e9f5ff;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--primary-bg);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            font-family: 'Jura', sans-serif;
+            background-color: #F5F5F4; /* Warm Neutral: Stone 100 */
         }
-
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background-color: var(--container-bg);
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            padding: 25px;
-            box-sizing: border-box;
+        h1, h2, h3, .stat-value {
+            font-family: 'Teko', sans-serif;
+            letter-spacing: 0.05em;
         }
-
-        h1 {
-            text-align: center;
-            color: var(--text-color);
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 1.8em;
+        .active-leg {
+            border-color: #F59E0B !important; /* Amber 500 */
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        
-        .file-io-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-        }
-
-        #message-display {
-            height: 300px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            overflow-y: auto;
-            background-color: var(--input-bg);
-        }
-
-        .message {
-            background-color: var(--message-bg);
-            padding: 10px 15px;
-            border-radius: 18px;
-            margin-bottom: 10px;
-            max-width: 85%;
-            word-wrap: break-word;
-        }
-        
-        .message .timestamp {
-            font-size: 0.75em;
-            color: #555;
-            display: block;
-            margin-top: 5px;
-            text-align: right;
-        }
-
-        #message-form {
-            display: flex;
-            gap: 10px;
-        }
-
-        #message-input {
+        .timeline-connector {
             flex-grow: 1;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 1em;
-            resize: vertical;
+            height: 2px;
+            background-color: #A8A29E; /* Stone 400 */
         }
-
-        button, input[type="file"]::file-selector-button {
-            padding: 12px 20px;
-            border: none;
-            background-color: var(--button-bg);
-            color: var(--button-text);
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: 500;
-            transition: background-color 0.2s ease;
+        .timeline-item:last-child .timeline-connector {
+            display: none;
         }
-
-        button:hover, input[type="file"]::file-selector-button:hover {
-            background-color: var(--button-hover-bg);
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
         }
     </style>
 </head>
-<body>
+<body class="bg-stone-100 text-stone-800">
 
-    <div class="container">
-        <h1>Message Board</h1>
+    <header class="bg-stone-800 text-stone-100 text-center p-8 shadow-2xl">
+        <h1 class="text-6xl md:text-8xl font-bold tracking-wider">TERRA STRIDE</h1>
+        <p class="text-xl md:text-2xl mt-2 text-amber-400">The Definitive Intercontinental Foot Journey</p>
+        <p class="text-lg md:text-xl mt-4 italic">“Solvitur Ambulando” (It is solved by walking)</p>
+    </header>
 
-        <div class="file-io-section">
-            <input type="file" id="upload-json" accept=".json">
-            <button id="download-json">Download Messages (.json)</button>
-        </div>
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <section id="mission-overview" class="text-center mb-12">
+             <h2 class="text-5xl font-semibold mb-6">Mission Overview</h2>
+             <p class="max-w-4xl mx-auto text-lg text-stone-700 mb-8">
+                This dashboard outlines an audacious plan: to complete the longest possible continuous overland foot journey on Earth. The expedition, named Terra Stride, charts a course from the southern tip of the Americas to the southern coast of Africa, a testament to human endurance and meticulous planning. Explore the key statistics that define this monumental undertaking.
+             </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-amber-500">
+                    <h3 class="text-2xl text-stone-500">Route</h3>
+                    <p class="stat-value text-4xl font-bold text-stone-800">Ushuaia to Cape Town</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-amber-500">
+                    <h3 class="text-2xl text-stone-500">Total Distance</h3>
+                    <p class="stat-value text-4xl font-bold text-stone-800">~42,000 Kilometers</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-amber-500">
+                    <h3 class="text-2xl text-stone-500">Total Duration</h3>
+                    <p class="stat-value text-4xl font-bold text-stone-800">8-10 Years</p>
+                </div>
+            </div>
+        </section>
 
-        <div id="message-display">
+        <section id="route-map" class="mb-12">
+            <h2 class="text-5xl font-semibold text-center mb-6">Global Route Visualization</h2>
+            <p class="max-w-4xl mx-auto text-lg text-stone-700 mb-8 text-center">
+                The map below charts the intercontinental path of the Terra Stride expedition. It highlights the primary waypoints of the journey, from the starting point in Ushuaia, Argentina, across the hypothetical Bering Strait ice bridge, and all the way to the finish line in Cape Town, South Africa. Hover over the points to see key locations.
+            </p>
+            <div class="bg-white p-2 md:p-4 rounded-lg shadow-xl">
+                <div id="worldMap" class="w-full h-[350px] md:h-[550px]"></div>
+            </div>
+        </section>
+
+        <section id="expedition-plan" class="mb-12">
+            <h2 class="text-5xl font-semibold text-center mb-6">The Expedition Legs</h2>
+            <p class="max-w-4xl mx-auto text-lg text-stone-700 mb-8 text-center">
+                The journey is divided into four strategic legs, each presenting unique geographical and seasonal challenges. Click on any leg below to explore its specific route, environmental hurdles, and estimated timeline. This interactive timeline provides a high-level view of the entire trek from start to finish.
+            </p>
+            <div id="timeline-controls" class="flex flex-col md:flex-row items-center justify-center w-full max-w-6xl mx-auto mb-8">
+                <div class="timeline-item flex-1 text-center">
+                    <button data-leg="americas" class="leg-btn bg-white w-full md:w-auto p-4 border-2 border-stone-400 rounded-lg shadow-sm transition-all duration-300">
+                        <span class="block text-2xl font-bold">LEG 1</span>
+                        <span class="block text-stone-600">The Americas</span>
+                    </button>
+                </div>
+                <div class="timeline-connector w-1/2 md:w-auto mt-[-2px] md:mt-0"></div>
+                <div class="timeline-item flex-1 text-center">
+                     <button data-leg="arctic" class="leg-btn bg-white w-full md:w-auto p-4 border-2 border-stone-400 rounded-lg shadow-sm transition-all duration-300">
+                        <span class="block text-2xl font-bold">LEG 2</span>
+                        <span class="block text-stone-600">Arctic Bridge</span>
+                    </button>
+                </div>
+                <div class="timeline-connector w-1/2 md:w-auto mt-[-2px] md:mt-0"></div>
+                <div class="timeline-item flex-1 text-center">
+                     <button data-leg="asia" class="leg-btn bg-white w-full md:w-auto p-4 border-2 border-stone-400 rounded-lg shadow-sm transition-all duration-300">
+                        <span class="block text-2xl font-bold">LEG 3</span>
+                        <span class="block text-stone-600">Asia Traverse</span>
+                    </button>
+                </div>
+                <div class="timeline-connector w-1/2 md:w-auto mt-[-2px] md:mt-0"></div>
+                <div class="timeline-item flex-1 text-center">
+                     <button data-leg="africa" class="leg-btn bg-white w-full md:w-auto p-4 border-2 border-stone-400 rounded-lg shadow-sm transition-all duration-300">
+                        <span class="block text-2xl font-bold">LEG 4</span>
+                        <span class="block text-stone-600">Africa Traverse</span>
+                    </button>
+                </div>
             </div>
 
-        <form id="message-form">
-            <textarea id="message-input" placeholder="Type your message here..." rows="3"></textarea>
-            <button type="submit">Send</button>
-        </form>
-    </div>
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl grid grid-cols-1 lg:grid-cols-5 gap-8">
+                <div id="leg-details" class="lg:col-span-3">
+                    <h3 id="leg-title" class="text-4xl font-bold mb-4"></h3>
+                    <div class="flex flex-wrap gap-x-8 gap-y-2 mb-4 text-lg">
+                        <p><strong class="text-stone-600">Duration: </strong><span id="leg-duration"></span></p>
+                        <p><strong class="text-stone-600">Distance: </strong><span id="leg-distance"></span></p>
+                    </div>
+                    <div id="leg-challenges"></div>
+                </div>
+                <div class="lg:col-span-2 flex flex-col items-center justify-center">
+                    <h3 class="text-3xl font-semibold mb-4 text-center">Leg Distance Breakdown (km)</h3>
+                    <div class="chart-container">
+                        <canvas id="legChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="logistics" class="mb-12">
+            <h2 class="text-5xl font-semibold text-center mb-6">Preparation & Logistics</h2>
+            <p class="max-w-4xl mx-auto text-lg text-stone-700 mb-8 text-center">
+                The success of an 8-10 year expedition rests on a foundation of meticulous preparation. This section details the critical components of pre-expedition training, ongoing logistical management, and the specialized, modular gear system required to survive the planet's most extreme environments.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-3xl font-semibold mb-3">Physical Conditioning</h3>
+                    <ul class="list-disc list-inside space-y-2 text-stone-700">
+                        <li><strong>Endurance:</strong> Progressively build to 40-50 km/day with a full pack.</li>
+                        <li><strong>Strength:</strong> Focus on core, legs, and back for injury prevention.</li>
+                        <li><strong>Acclimatization:</strong> Train in mountain, cold, and hot/humid conditions.</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-3xl font-semibold mb-3">Skill Acquisition</h3>
+                    <ul class="list-disc list-inside space-y-2 text-stone-700">
+                        <li>Advanced Wilderness First Aid & Trauma Care certification.</li>
+                        <li>Survival courses for Arctic, jungle, and desert environments.</li>
+                        <li>Mastery of GPS, satellite imagery, and traditional navigation.</li>
+                        <li>Basic mechanics for comprehensive gear repair.</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-3xl font-semibold mb-3">Communication & Safety</h3>
+                     <ul class="list-disc list-inside space-y-2 text-stone-700">
+                        <li>Primary and backup satellite phones for daily check-ins.</li>
+                        <li>Comprehensive medical kit for remote trauma and illness.</li>
+                        <li>Emergency satellite consultation protocol with a doctor.</li>
+                        <li>Air evacuation insurance plan.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <section id="gear-system">
+            <h2 class="text-5xl font-semibold text-center mb-6">Modular Gear System</h2>
+            <p class="max-w-4xl mx-auto text-lg text-stone-700 mb-8 text-center">
+                No single set of gear can handle every environment on Earth. The strategy relies on a core kit supplemented by specialized modules for extreme conditions. Select a module below to view its specific equipment list.
+            </p>
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl">
+                 <div class="flex flex-wrap justify-center gap-2 mb-6 border-b-2 border-stone-200 pb-4">
+                    <button data-gear="core" class="gear-btn bg-amber-500 text-white px-4 py-2 rounded-md shadow">Core Kit</button>
+                    <button data-gear="arctic" class="gear-btn bg-stone-600 text-white px-4 py-2 rounded-md shadow">Arctic Module</button>
+                    <button data-gear="desert" class="gear-btn bg-stone-600 text-white px-4 py-2 rounded-md shadow">Desert Module</button>
+                    <button data-gear="jungle" class="gear-btn bg-stone-600 text-white px-4 py-2 rounded-md shadow">Jungle Module</button>
+                </div>
+                <div id="gear-details" class="text-stone-700">
+                </div>
+            </div>
+        </section>
+
+    </main>
+    
+    <footer class="text-center p-6 bg-stone-800 text-stone-300 mt-12">
+        <p>Project: Terra Stride | An Interactive Expedition Plan</p>
+    </footer>
 
     <script>
+        const expeditionData = {
+            americas: {
+                title: "LEG 1: The Americas Traverse",
+                duration: "~3.5 Years",
+                distance: "~20,000 km",
+                content: `
+                    <p class="mb-4"><strong>Route:</strong> Ushuaia, Argentina to Wales, Alaska</p>
+                    <p class="mb-2"><strong>Key Segments & Challenges:</strong></p>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><strong>Patagonia & Andes:</strong> Extreme winds, unpredictable mountain weather, high altitude sickness.</li>
+                        <li><strong>The Darién Gap:</strong> Dense, pathless jungle, river crossings, extreme humidity.</li>
+                        <li><strong>Central America & Mexico:</strong> Intense heat, tropical diseases, varied terrain from jungle to near-desert.</li>
+                        <li><strong>USA & Canada:</strong> Vast distances, seasonal extremes, and significant wildlife encounters (bears, moose).</li>
+                        <li><strong>The Alaskan Push:</strong> Transition to Arctic conditions, extreme cold, navigating tundra.</li>
+                    </ul>`
+            },
+            arctic: {
+                title: "LEG 2: The Arctic Bridge",
+                duration: "7-10 Days",
+                distance: "~88 km",
+                content: `
+                    <p class="mb-4"><strong>Route:</strong> Bering Strait Crossing (Wales, AK to Uelen, RU)</p>
+                    <p class="mb-2"><strong>Key Segments & Challenges:</strong></p>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><strong>Timing:</strong> Crossing in Jan/Feb for maximum hypothetical ice stability.</li>
+                        <li><strong>Environment:</strong> Navigating on ice, extreme temperatures (below -40°C), and polar winds.</li>
+                        <li><strong>Threats:</strong> The most technically demanding week, with a high risk of polar bear encounters.</li>
+                    </ul>`
+            },
+            asia: {
+                title: "LEG 3: The Asian Traverse",
+                duration: "~3 Years",
+                distance: "~12,000 km",
+                content: `
+                    <p class="mb-4"><strong>Route:</strong> Uelen, Russia to Istanbul, Turkey</p>
+                    <p class="mb-2"><strong>Key Segments & Challenges:</strong></p>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><strong>Siberian Endurance:</strong> The ultimate test of isolation, surviving brutal winters and mosquito-infested summers.</li>
+                        <li><strong>Across Russia & Central Asia:</strong> Crossing vast plains (the Steppe) and navigating complex geopolitical landscapes.</li>
+                        <li><strong>To The Bosphorus:</strong> The symbolic crossing from Asia to Europe in Istanbul.</li>
+                    </ul>`
+            },
+            africa: {
+                title: "LEG 4: The African Traverse",
+                duration: "~2.5 Years",
+                distance: "~10,000 km",
+                content: `
+                    <p class="mb-4"><strong>Route:</strong> Istanbul, Turkey to Cape Town, South Africa</p>
+                    <p class="mb-2"><strong>Key Segments & Challenges:</strong></p>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><strong>The Great Desert:</strong> Ultimate heat and water management challenge crossing the Sahara/Nubian Desert.</li>
+                        <li><strong>The Jungle Heart:</strong> High humidity, tropical diseases, and challenging navigation in the Congo basin.</li>
+                        <li><strong>Savanna to Coast:</strong> Major wildlife encounters (lions, elephants) while crossing the savannas of Southern Africa.</li>
+                    </ul>`
+            }
+        };
+
+        const gearData = {
+            core: `
+                <h4 class="text-2xl font-bold mb-3">Core Kit (All Legs)</h4>
+                <ul class="list-disc list-inside space-y-2 pl-2">
+                    <li>70L Expedition Backpack</li>
+                    <li>4-Season Expedition Tent</li>
+                    <li>-10°C Sleeping Bag & Insulated Pad</li>
+                    <li>Multi-fuel Stove & Cookware</li>
+                    <li>Advanced Water Purification System (Filter + Chemical)</li>
+                    <li>Satellite Messenger/Phone & Solar Charging Array</li>
+                    <li>Comprehensive Medical & Survival Kits</li>
+                </ul>`,
+            arctic: `
+                <h4 class="text-2xl font-bold mb-3">Arctic Module</h4>
+                 <ul class="list-disc list-inside space-y-2 pl-2">
+                    <li>-40°C Expedition Sleeping Bag & Double Pads</li>
+                    <li>Insulated Down Suit & Layering System</li>
+                    <li>Snowshoes, Crampons, Ice Axe</li>
+                    <li>Expedition Sled (to haul extra gear/food)</li>
+                </ul>`,
+            desert: `
+                <h4 class="text-2xl font-bold mb-3">Desert Module</h4>
+                 <ul class="list-disc list-inside space-y-2 pl-2">
+                    <li>Expanded Water Capacity (15L+)</li>
+                    <li>Light-colored, full-coverage UV-protective clothing</li>
+                    <li>Wide-brimmed hat, sand goggles</li>
+                </ul>`,
+            jungle: `
+                <h4 class="text-2xl font-bold mb-3">Jungle Module</h4>
+                 <ul class="list-disc list-inside space-y-2 pl-2">
+                    <li>Hammock with integrated insect netting (instead of tent)</li>
+                    <li>Machete/Saw for clearing brush</li>
+                    <li>Permethrin-treated clothing & potent insect repellent</li>
+                    <li>Waterproof bags for all electronics and gear</li>
+                </ul>`
+        };
+
+        let legChart;
+
         document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM Element References ---
-            const messageForm = document.getElementById('message-form');
-            const messageInput = document.getElementById('message-input');
-            const messageDisplay = document.getElementById('message-display');
-            const downloadBtn = document.getElementById('download-json');
-            const uploadInput = document.getElementById('upload-json');
+            const legButtons = document.querySelectorAll('.leg-btn');
+            const gearButtons = document.querySelectorAll('.gear-btn');
 
-            // --- State ---
-            // This array will hold all our message objects in memory.
-            let messages = [];
+            const titleEl = document.getElementById('leg-title');
+            const durationEl = document.getElementById('leg-duration');
+            const distanceEl = document.getElementById('leg-distance');
+            const challengesEl = document.getElementById('leg-challenges');
+            const gearDetailsEl = document.getElementById('gear-details');
 
-            // --- Functions ---
+            function updateLegDetails(legKey) {
+                const data = expeditionData[legKey];
+                titleEl.textContent = data.title;
+                durationEl.textContent = data.duration;
+                distanceEl.textContent = data.distance;
+                challengesEl.innerHTML = data.content;
 
-            /**
-             * Renders the messages from the `messages` array to the display area.
-             */
-            const renderMessages = () => {
-                messageDisplay.innerHTML = ''; // Clear existing messages
-                messages.forEach(msg => {
-                    const messageEl = document.createElement('div');
-                    messageEl.classList.add('message');
-
-                    const textEl = document.createElement('p');
-                    textEl.textContent = msg.text;
-                    textEl.style.margin = '0';
-
-                    const timeEl = document.createElement('span');
-                    timeEl.classList.add('timestamp');
-                    // Format timestamp into a readable string
-                    timeEl.textContent = new Date(msg.timestamp).toLocaleString();
-                    
-                    messageEl.appendChild(textEl);
-                    messageEl.appendChild(timeEl);
-
-                    messageDisplay.appendChild(messageEl);
-                });
-                // Auto-scroll to the latest message
-                messageDisplay.scrollTop = messageDisplay.scrollHeight;
-            };
-
-            /**
-             * Adds a new message to the `messages` array and re-renders the display.
-             * @param {string} text - The content of the message.
-             */
-            const addMessage = (text) => {
-                if (!text.trim()) return; // Don't add empty messages
-
-                const newMessage = {
-                    text: text.trim(),
-                    timestamp: new Date().toISOString()
-                };
-                messages.push(newMessage);
-                renderMessages();
-            };
-            
-            /**
-             * Generates and triggers a download for the messages as a JSON file.
-             */
-            const downloadMessagesAsJSON = () => {
-                if (messages.length === 0) {
-                    alert("There are no messages to download.");
-                    return;
-                }
-                const jsonString = JSON.stringify(messages, null, 2); // Pretty-print JSON
-                const blob = new Blob([jsonString], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'messages.json';
-                document.body.appendChild(a);
-                a.click();
-                
-                // Cleanup
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            };
-
-            /**
-             * Loads and displays messages from an uploaded JSON file.
-             * @param {Event} event - The file input change event.
-             */
-            const loadMessagesFromJSON = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const loadedData = JSON.parse(e.target.result);
-                        // Basic validation: check if it's an array
-                        if (Array.isArray(loadedData)) {
-                            messages = loadedData;
-                            renderMessages();
-                        } else {
-                            alert("Invalid JSON file format. The file should contain an array of messages.");
-                        }
-                    } catch (error) {
-                        alert("Error reading or parsing the JSON file.");
-                        console.error("JSON Parse Error:", error);
+                legButtons.forEach(btn => {
+                    btn.classList.remove('active-leg');
+                    if(btn.dataset.leg === legKey) {
+                        btn.classList.add('active-leg');
                     }
-                };
-                reader.readAsText(file);
-            };
+                });
+            }
 
+            function updateGearDetails(gearKey) {
+                gearDetailsEl.innerHTML = gearData[gearKey];
+                 gearButtons.forEach(btn => {
+                    btn.classList.remove('bg-amber-500');
+                    btn.classList.add('bg-stone-600');
+                    if(btn.dataset.gear === gearKey) {
+                        btn.classList.remove('bg-stone-600');
+                        btn.classList.add('bg-amber-500');
+                    }
+                });
+            }
 
-            // --- Event Listeners ---
-            
-            // Handle form submission to add a new message
-            messageForm.addEventListener('submit', (e) => {
-                e.preventDefault(); // Prevent page reload
-                addMessage(messageInput.value);
-                messageInput.value = ''; // Clear the input field
-                messageInput.focus();
+            legButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    updateLegDetails(button.dataset.leg);
+                });
             });
 
-            // Handle download button click
-            downloadBtn.addEventListener('click', downloadMessagesAsJSON);
-            
-            // Handle file upload
-            uploadInput.addEventListener('change', loadMessagesFromJSON);
+            gearButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    updateGearDetails(button.dataset.gear);
+                });
+            });
 
-            // --- Initial Render ---
-            renderMessages(); // Initial call to display any default messages (currently none)
+            function renderWorldMap() {
+                const routeLats = [-54.8, 9.0, 65.6, 66.1, 41.0, 30.0, -33.9];
+                const routeLons = [-68.3, -79.5, -168.1, -169.8, 28.9, 31.2, 18.4];
+                const routeLocations = ['Ushuaia, AR', 'Panama City, PA', 'Wales, AK', 'Uelen, RU', 'Istanbul, TR', 'Cairo, EG', 'Cape Town, ZA'];
+
+                const routeTrace = {
+                    type: 'scattergeo',
+                    lon: routeLons,
+                    lat: routeLats,
+                    mode: 'lines',
+                    line: {
+                        width: 3,
+                        color: '#F59E0B' // Amber-500
+                    },
+                    hoverinfo: 'none'
+                };
+
+                const pointsTrace = {
+                    type: 'scattergeo',
+                    lon: routeLons,
+                    lat: routeLats,
+                    text: routeLocations,
+                    mode: 'markers',
+                    marker: {
+                        size: 8,
+                        color: '#DC2626', // Red-600
+                        symbol: 'circle'
+                    },
+                    hoverinfo: 'text'
+                };
+                
+                const layout = {
+                    title: {
+                        text: 'Terra Stride Expedition Route',
+                        font: {
+                            family: 'Teko, sans-serif',
+                            size: 24,
+                            color: '#44403C' // Stone-700
+                        }
+                    },
+                    showlegend: false,
+                    geo: {
+                        projection: {
+                            type: 'natural earth'
+                        },
+                        showland: true,
+                        landcolor: '#E7E5E4', // Stone-200
+                        showocean: true,
+                        oceancolor: '#D6D3D1', // Stone-300
+                        showcountries: true,
+                        countrycolor: '#A8A29E', // Stone-400
+                        bgcolor: 'rgba(0,0,0,0)',
+                    },
+                    margin: { l: 0, r: 0, t: 40, b: 0 },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                };
+
+                Plotly.newPlot('worldMap', [routeTrace, pointsTrace], layout, {responsive: true});
+            }
+
+            const ctx = document.getElementById('legChart').getContext('2d');
+            legChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Americas', 'Arctic Bridge', 'Asia', 'Africa'],
+                    datasets: [{
+                        label: 'Distance (km)',
+                        data: [20000, 88, 12000, 10000],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.7)',  // Blue
+                            'rgba(239, 68, 68, 0.7)',   // Red
+                            'rgba(245, 158, 11, 0.7)', // Amber
+                            'rgba(16, 185, 129, 0.7)'  // Emerald
+                        ],
+                        borderColor: [
+                           'rgba(59, 130, 246, 1)',
+                           'rgba(239, 68, 68, 1)',
+                           'rgba(245, 158, 11, 1)',
+                           'rgba(16, 185, 129, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += new Intl.NumberFormat('en-US').format(context.parsed) + ' km';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            updateLegDetails('americas');
+            updateGearDetails('core');
+            renderWorldMap();
         });
     </script>
 </body>
 </html>
+
